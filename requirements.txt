@@ -1,0 +1,9 @@
+# Core Frameworks & APIs
+google-genai==0.1.1
+chromadb==0.4.24
+
+# Data Processing & Utilities
+pillow==10.2.0
+
+# User Interface
+streamlit==1.32.0
