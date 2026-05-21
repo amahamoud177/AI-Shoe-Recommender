@@ -1,4 +1,9 @@
 import os
+
+# FORCE NATIVE ONNX BINARY WRAPPER TO SILENCE SYSTEM LOGS
+# Must remain at the absolute top of the file before other imports execute
+os.environ["ORT_LOGGING_LEVEL"] = "3"
+
 import streamlit as st
 from PIL import Image
 from google import genai
@@ -7,14 +12,16 @@ import chromadb
 from chromadb.config import Settings
 from dotenv import load_dotenv
 import warnings
-import logging
 
-# Tell Python to suppress low-level library warnings
+# Suppress standard Python library/framework warnings
 warnings.filterwarnings("ignore")
-logging.getLogger("onnxruntime").setLevel(logging.ERROR)
 
-# Load your custom environment file right at startup
+# Load your environment configuration file securely
 load_dotenv(dotenv_path="key.env")
+
+# =====================================================================
+# BACKEND, API, & VECTOR DATABASE CONFIGURATION
+# =====================================================================
 
 def get_gemini_client():
     """Initializes the official Gemini API client securely from environment variables."""
@@ -60,6 +67,10 @@ def initialize_vector_db():
             documents=[item["text"]]
         )
     return collection
+
+# =====================================================================
+# PROMPT ENGINEERING & LLM CHAINING
+# =====================================================================
 
 def analyze_outfit_image(client, image):
     """
@@ -116,6 +127,10 @@ def get_final_chat_response(client, outfit_description, matched_shoe, user_messa
     )
     return response.text
 
+# =====================================================================
+# STREAMLIT UI & INTERACTIVE CHAT INTERFACE
+# =====================================================================
+
 def main():
     st.set_page_config(page_title="AI Shoe Recommender", page_icon="👟")
     st.title("👟 AI Shoe Recommender Agent")
@@ -156,3 +171,47 @@ def main():
                         return
                     
                     st.session_state.outfit_context = raw_analysis
+                    
+                    # Vector DB Retrieval: Match keywords to inventory
+                    query_vector = get_embedding(client, raw_analysis)
+                    db_results = st.session_state.vector_db.query(
+                        query_embeddings=[query_vector],
+                        n_results=1
+                    )
+                    st.session_state.shoe_context = db_results['documents'][0][0]
+                    
+                    # Call Chain 2: Initial Synthesis Message
+                    initial_reply = get_final_chat_response(
+                        client, st.session_state.outfit_context, st.session_state.shoe_context
+                    )
+                    st.session_state.messages.append({"role": "assistant", "content": initial_reply})
+                    st.rerun()
+
+        # If context is found, permanently render the chat window independent of button states
+        if st.session_state.outfit_context is not None:
+            st.write("---")
+            st.subheader("💬 Chat with your AI Stylist")
+            
+            # Render chat logs dynamically from session history
+            for msg in st.session_state.messages:
+                with st.chat_message(msg["role"]):
+                    st.write(msg["content"])
+            
+            # Allow user follow-up questions (Outcome 3: Customer Service Chatbot)
+            if user_query := st.chat_input("Ask me anything else about this style..."):
+                st.session_state.messages.append({"role": "user", "content": user_query})
+                with st.chat_message("user"):
+                    st.write(user_query)
+                    
+                with st.spinner("Thinking..."):
+                    chat_reply = get_final_chat_response(
+                        client, 
+                        st.session_state.outfit_context, 
+                        st.session_state.shoe_context, 
+                        user_message=user_query
+                    )
+                st.session_state.messages.append({"role": "assistant", "content": chat_reply})
+                st.rerun()
+
+if __name__ == "__main__":
+    main()
