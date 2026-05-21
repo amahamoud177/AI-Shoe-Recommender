@@ -155,7 +155,7 @@ def main():
     
     if uploaded_file:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Your Outfit Look", use_container_width=True)
+        st.image(image, caption="Your Outfit Look", use_column_width=True)
         
         # Only show the initial analysis button if we haven't processed this image context yet
         if st.session_state.outfit_context is None:
