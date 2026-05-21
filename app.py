@@ -9,15 +9,12 @@ from dotenv import load_dotenv
 # Load your custom environment file right at startup
 load_dotenv(dotenv_path="key.env")
 
-def get_gemini_client():
-    """Temporary hardcoded key check to isolate the issue."""
-    # Delete the os.environ line entirely for this test and paste your key here:
-    api_key = "AIzaSyB2YHEdi2LrS7pjyGzmxKBU6w5-iIvDf2s" 
-    
-    return genai.Client(api_key=api_key)
+# =====================================================================
+# BACKEND, API, & VECTOR DATABASE CONFIGURATION
+# =====================================================================
 
-#def get_gemini_client():
-    """Initializes the official Gemini API client."""
+def get_gemini_client():
+    """Initializes the official Gemini API client securely from environment variables."""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         st.error("Error: GEMINI_API_KEY not found. Please check your key.env file.")
@@ -59,7 +56,9 @@ def initialize_vector_db():
         )
     return collection
 
-
+# =====================================================================
+# PROMPT ENGINEERING & LLM CHAINING
+# =====================================================================
 
 def analyze_outfit_image(client, image):
     """
@@ -116,7 +115,9 @@ def get_final_chat_response(client, outfit_description, matched_shoe, user_messa
     )
     return response.text
 
-
+# =====================================================================
+# STREAMLIT UI & INTERACTIVE CHAT INTERFACE
+# =====================================================================
 
 def main():
     st.set_page_config(page_title="AI Shoe Recommender", page_icon="👟")
