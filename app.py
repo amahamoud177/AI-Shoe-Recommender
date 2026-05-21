@@ -6,6 +6,12 @@ from google.genai import types
 import chromadb  
 from chromadb.config import Settings
 from dotenv import load_dotenv
+import warnings
+import logging
+
+# Tell Python to suppress low-level library warnings
+warnings.filterwarnings("ignore")
+logging.getLogger("onnxruntime").setLevel(logging.ERROR)
 
 # Load your custom environment file right at startup
 load_dotenv(dotenv_path="key.env")
