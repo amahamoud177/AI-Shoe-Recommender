@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Curation Interface | Semantic Sneaker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header style="margin-bottom: 10px;">
+        <h1>Semantic <span>Sneaker</span></h1>
+        <p class="subtitle">Logged in as: {{ username }} | <a href="{{ url_for('logout') }}" style="color: var(--accent-gold);">Secure Logout</a></p>
+    </header>
+
+    <div class="chat-container">
+        <div class="chat-history" id="chat-history">
+            <div class="chat-bubble bot-msg">
+                Welcome back, {{ username }}. Tell me about your current vibe, or what kind of outfit you are styling today.
+            </div>
+        </div>
+        
+        <form class="chat-input-area" id="chat-form">
+            <input type="text" id="chat-input" placeholder="Describe your mood or fit..." required autocomplete="off">
+            <button type="submit" class="btn">Send</button>
+        </form>
+    </div>
+
+    <script src="{{ url_for('static', filename='chat.js') }}"></script>
+</body>
+</html>
