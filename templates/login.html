@@ -8,39 +8,21 @@
     <link rel="stylesheet" href="../static/styles.css">
     <style>
         .auth-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 70vh;
-            width: 100%;
+            display: flex; justify-content: center; align-items: center; min-height: 60vh; width: 100%;
         }
-        .form-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--accent-gold, #D4AF37);
-            font-size: 0.9rem;
-        }
-        .auth-link {
-            display: block;
-            margin-top: 20px;
-            color: var(--text-muted, #8e9590);
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: color 0.3s;
-        }
-        .auth-link:hover {
-            color: var(--accent-gold, #D4AF37);
-        }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 8px; color: var(--accent-gold, #D4AF37); font-size: 0.9rem; }
+        .auth-link { display: block; margin-top: 20px; color: var(--text-muted, #8e9590); text-decoration: none; font-size: 0.9rem; transition: color 0.3s; }
+        .auth-link:hover { color: var(--accent-gold, #D4AF37); }
+        .home-link { text-decoration: none; color: inherit; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>Client <span>Portal</span></h1>
+        <a href="index.html" class="home-link">
+            <h1>Client <span>Portal</span></h1>
+        </a>
         <p class="subtitle">Access your personalized curation profile.</p>
     </header>
 
