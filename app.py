@@ -14,6 +14,8 @@ warnings.filterwarnings("ignore")
 # Load Environment Variables
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
+valid_user = os.getenv("APP_USER", "admin")
+valid_pass = os.getenv("APP_PASS", "luxury123")
 
 # Initialize Flask
 app = Flask(__name__)
@@ -47,7 +49,6 @@ sneakers = [
     {"id": "3", "name": "Adidas Samba OG", "desc": "Classic, minimalist, white and black leather, old money, understated elegance.", "tags": ["Minimalist", "Heritage"]}
 ]
 
-# Use the updated embedding model
 embedding_model = 'gemini-embedding-001'
 documents = [s["desc"] for s in sneakers]
 
@@ -154,12 +155,20 @@ def api_message():
         tags = best_match["tags"].split(",")
         
         # 2. Advanced Prompt Engineering
-        sys_instr = """You are a high-end, expert AI fashion stylist. 
-        The user will ask for outfit advice. Provide a tailored, fashionable recommendation for what shoes to wear with their specific outfit. 
-        You are also connected to our boutique's inventory. If the 'Featured Boutique Sneaker' provided in the prompt works well with their outfit, gracefully recommend it! If it doesn't match at all, ignore the boutique sneaker and give them general fashion advice for their specific clothing instead. 
-        Be elegant, confident, and conversational."""
+        sys_instr = f"""You are a luxury, high-end AI fashion stylist. 
+        The user will ask for outfit advice. Provide a comprehensive, structured response breaking down different styling vibes (e.g., Formal, Modern, Smart-Casual) just like an expert stylist would.
         
-        prompt = f"User's outfit/question: {user_prompt}\n\nFeatured Boutique Sneaker:\nName: {sneaker_name}\nStyle: {best_match_doc}"
+        You also have access to our specific boutique inventory item:
+        - Name: {sneaker_name}
+        - Style Profile: {best_match_doc}
+        
+        CRITICAL RULES:
+        1. If the user's input is gibberish, random letters (like "ll", "asdf"), or completely off-topic, politely ask them to describe their outfit or mood, and DO NOT mention or recommend any shoes.
+        2. Give a complete, detailed fashion breakdown for their outfit first (suggesting classic footwear types like Oxfords, Loafers, or Boots where appropriate).
+        3. Look at our boutique inventory item. If it fits naturally into one of your style categories (like a Smart-Casual sneaker vibe), seamlessly mention it as an excellent choice from our collection! 
+        4. If you explicitly recommend this specific boutique sneaker name anywhere in your text, you MUST append the exact text '[SHOW_CARD]' at the very end of your entire response. Otherwise, do not add the tag."""
+        
+        prompt = f"User Input: {user_prompt}"
         
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -167,11 +176,23 @@ def api_message():
             config=types.GenerateContentConfig(system_instruction=sys_instr)
         )
         
-        # 3. Format Output
-        tags_html = "".join([f"<span class='tag'>{tag}</span>" for tag in tags])
-        card_html = f'<div class="sneaker-card"><div style="font-size: 0.8rem; color: var(--accent-gold); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">From Our Collection</div><div class="sneaker-name">{sneaker_name}</div><div class="match-tags">{tags_html}</div></div>'
+        # Define the variables cleanly so they are never unbound
+        ai_text = response.text
+        card_html = ""
         
-        return jsonify({"text": response.text, "html": card_html})
+        # 3. Check if Gemini explicitly triggered the product display card
+        if "[SHOW_CARD]" in ai_text:
+            ai_text = ai_text.replace("[SHOW_CARD]", "").strip()
+            tags_html = "".join([f"<span class='tag'>{tag}</span>" for tag in tags])
+            card_html = f"""
+            <div class="sneaker-card">
+                <div style="font-size: 0.8rem; color: var(--accent-gold); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">From Our Collection</div>
+                <div class="sneaker-name">{sneaker_name}</div>
+                <div class="match-tags">{tags_html}</div>
+            </div>
+            """
+        
+        return jsonify({"text": ai_text, "html": card_html})
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
