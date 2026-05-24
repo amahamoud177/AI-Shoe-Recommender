@@ -7,21 +7,31 @@
 </head>
 <body>
     <header>
-        <a href="{{ url_for('index') }}" style="text-decoration: none;"><h1>Client <span>Portal</span></h1></a>
+        <a href="{{ url_for('home') }}" style="text-decoration: none;"><h1>Client <span>Portal</span></h1></a>
         <p class="subtitle">Access your personalized curation profile.</p>
     </header>
     
     <div class="glass-panel" style="width: 100%; max-width: 400px;">
+        {% if message %}
+            <p style="color: #4aff80; text-align: center; margin-bottom: 15px;">{{ message }}</p>
+        {% endif %}
         {% if error %}
             <p style="color: #ff4a4a; text-align: center; margin-bottom: 15px;">{{ error }}</p>
         {% endif %}
+        
         <form action="{{ url_for('login') }}" method="POST">
-            <label style="color: var(--accent-gold);">Username</label>
-            <input type="text" name="username" required>
+            <label style="color: var(--accent-gold);">Username or Email</label>
+            <input type="text" name="login_id" placeholder="Enter username or email" required>
+            
             <label style="color: var(--accent-gold);">Password</label>
-            <input type="password" name="password" required>
-            <button type="submit" class="btn" style="width: 100%;">Authenticate</button>
+            <input type="password" name="password" placeholder="Enter your password" required>
+            
+            <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">Authenticate</button>
         </form>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="{{ url_for('signup') }}" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">Need an account? Sign up here.</a>
+        </div>
     </div>
 </body>
 </html>
