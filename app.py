@@ -20,10 +20,12 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 # Initialize Gemini Client
+if not api_key:
+    print("WARNING: Gemini API Key missing from .env")
 client = genai.Client(api_key=api_key)
 
 
-# --- SQLITE DATABASE SETUP ---
+# --- SQLITE DATABASE SETUP (User Registration) ---
 def init_db():
     with sqlite3.connect('users.db') as conn:
         c = conn.cursor()
@@ -38,13 +40,14 @@ def init_db():
 init_db()
 
 
-# --- FAISS VECTOR DATABASE SETUP ---
+# --- FAISS VECTOR DATABASE SETUP (Shoe Inventory) ---
 sneakers = [
     {"id": "1", "name": "Air Jordan 4 Retro 'Thunder'", "desc": "High-contrast, bold, confident, black and yellow streetwear.", "tags": ["Confident", "High-Contrast"]},
     {"id": "2", "name": "Nike Dunk Low 'Argon'", "desc": "Cool, relaxed, sky blue and white, perfect for styling with dark leather.", "tags": ["Color Match", "Streetwear"]},
     {"id": "3", "name": "Adidas Samba OG", "desc": "Classic, minimalist, white and black leather, old money, understated elegance.", "tags": ["Minimalist", "Heritage"]}
 ]
 
+# Use the updated embedding model
 embedding_model = 'gemini-embedding-001'
 documents = [s["desc"] for s in sneakers]
 
@@ -88,7 +91,6 @@ def signup():
                 c.execute("INSERT INTO users (name, email, username, password) VALUES (?, ?, ?, ?)",
                           (name, email, username, hashed_pw))
                 conn.commit()
-            # Redirect to login with a success message
             return redirect(url_for('login', msg="Account created! You may now log in."))
         except sqlite3.IntegrityError:
             return render_template('signup.html', error="Username or Email already exists.")
@@ -100,16 +102,14 @@ def signup():
 def login():
     message = request.args.get('msg')
     if request.method == 'POST':
-        login_id = request.form.get('login_id') # Can be username OR email
+        login_id = request.form.get('login_id') 
         password = request.form.get('password')
         
         with sqlite3.connect('users.db') as conn:
             c = conn.cursor()
-            # Check for either username or email match
             c.execute("SELECT * FROM users WHERE username=? OR email=?", (login_id, login_id))
             user = c.fetchone()
             
-        # user[4] is the hashed password, user[3] is the username
         if user and check_password_hash(user[4], password):
             session['authenticated'] = True
             session['username'] = user[3]
@@ -142,6 +142,7 @@ def api_message():
         return jsonify({"error": "Empty message"}), 400
 
     try:
+        # 1. FAISS Vector Search 
         query_resp = client.models.embed_content(model=embedding_model, contents=user_prompt)
         query_emb = np.array([query_resp.embeddings[0].values], dtype=np.float32)
         
@@ -152,20 +153,29 @@ def api_message():
         best_match_doc = best_match["desc"]
         tags = best_match["tags"].split(",")
         
-        sys_instr = "You are a high-end fashion stylist. Briefly explain why this specific sneaker matches the user's mood. Keep it under 3 sentences. Be elegant and confident."
+        # 2. Advanced Prompt Engineering
+        sys_instr = """You are a high-end, expert AI fashion stylist. 
+        The user will ask for outfit advice. Provide a tailored, fashionable recommendation for what shoes to wear with their specific outfit. 
+        You are also connected to our boutique's inventory. If the 'Featured Boutique Sneaker' provided in the prompt works well with their outfit, gracefully recommend it! If it doesn't match at all, ignore the boutique sneaker and give them general fashion advice for their specific clothing instead. 
+        Be elegant, confident, and conversational."""
+        
+        prompt = f"User's outfit/question: {user_prompt}\n\nFeatured Boutique Sneaker:\nName: {sneaker_name}\nStyle: {best_match_doc}"
+        
         response = client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"User's mood: {user_prompt}\nSneaker chosen: {sneaker_name}\nSneaker profile: {best_match_doc}",
+            contents=prompt,
             config=types.GenerateContentConfig(system_instruction=sys_instr)
         )
         
+        # 3. Format Output
         tags_html = "".join([f"<span class='tag'>{tag}</span>" for tag in tags])
-        card_html = f'<div class="sneaker-card"><div class="sneaker-name">{sneaker_name}</div><div class="match-tags">{tags_html}</div></div>'
+        card_html = f'<div class="sneaker-card"><div style="font-size: 0.8rem; color: var(--accent-gold); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">From Our Collection</div><div class="sneaker-name">{sneaker_name}</div><div class="match-tags">{tags_html}</div></div>'
         
         return jsonify({"text": response.text, "html": card_html})
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
