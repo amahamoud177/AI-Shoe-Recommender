@@ -144,8 +144,7 @@ def api_message():
         return jsonify({
             "text": ai_text,
             "html": card_html
-        })
-        
+        }) 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
