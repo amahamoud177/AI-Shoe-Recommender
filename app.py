@@ -1,19 +1,13 @@
 import os
 import warnings
-
-# Silence Warnings
-os.environ["ORT_LOGGING_LEVEL"] = "3"
-os.environ["ORT_LOGGING_LEVEL_DEFAULT"] = "3"
-os.environ["ANONYMIZED_TELEMETRY"] = "False"
-
+import numpy as np
+import faiss
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-import chromadb
-from chromadb.config import Settings
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore")
 
 # Load Environment Variables
 load_dotenv()
@@ -23,38 +17,56 @@ valid_pass = os.getenv("APP_PASS", "luxury123")
 
 # Initialize Flask
 app = Flask(__name__)
-app.secret_key = os.urandom(24) # Secure key for Flask sessions
+app.secret_key = os.urandom(24)
 
-# Initialize Gemini
-if api_key:
-    client = genai.Client(api_key=api_key)
-else:
+# Initialize Gemini Client
+if not api_key:
     print("WARNING: Gemini API Key missing from .env")
+client = genai.Client(api_key=api_key)
 
-# Initialize ChromaDB Vector Database
-db_client = chromadb.Client(Settings(anonymized_telemetry=False))
-try:
-    db_client.delete_collection("luxury_sneakers")
-except Exception:
-    pass
 
-collection = db_client.create_collection("luxury_sneakers")
+# --- FAISS VECTOR DATABASE SETUP ---
+
+# Demo Inventory
 sneakers = [
     {"id": "1", "name": "Air Jordan 4 Retro 'Thunder'", "desc": "High-contrast, bold, confident, black and yellow streetwear.", "tags": ["Confident", "High-Contrast"]},
     {"id": "2", "name": "Nike Dunk Low 'Argon'", "desc": "Cool, relaxed, sky blue and white, perfect for styling with dark leather.", "tags": ["Color Match", "Streetwear"]},
     {"id": "3", "name": "Adidas Samba OG", "desc": "Classic, minimalist, white and black leather, old money, understated elegance.", "tags": ["Minimalist", "Heritage"]}
 ]
-collection.add(
-    documents=[s["desc"] for s in sneakers],
-    metadatas=[{"name": s["name"], "tags": ",".join(s["tags"])} for s in sneakers],
-    ids=[s["id"] for s in sneakers]
+
+# 1. Embed the sneaker descriptions using Gemini
+embedding_model = 'text-embedding-004'
+documents = [s["desc"] for s in sneakers]
+
+print("Initializing FAISS Vector Database...")
+response = client.models.embed_content(
+    model=embedding_model,
+    contents=documents
 )
+
+# 2. Extract vector values and format them for FAISS (numpy float32 array)
+embeddings = np.array([emb.values for emb in response.embeddings], dtype=np.float32)
+dimension = embeddings.shape[1] 
+
+# 3. Build the FAISS Index
+vector_index = faiss.IndexFlatL2(dimension)
+vector_index.add(embeddings)
+
+# 4. Create a metadata store to map the vectors back to the sneaker details
+metadata_store = {}
+for i, s in enumerate(sneakers):
+    metadata_store[i] = {
+        "name": s["name"],
+        "desc": s["desc"],
+        "tags": ",".join(s["tags"])
+    }
+print("Database ready.")
 
 
 # --- FLASK ROUTES ---
 
 @app.route('/')
-def index():
+def home():
     return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -75,7 +87,7 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('index'))
+    return redirect(url_for('home'))
 
 @app.route('/chat')
 def chat():
@@ -95,16 +107,24 @@ def api_message():
     if not user_prompt:
         return jsonify({"error": "Empty message"}), 400
 
-    # Query Vector Database
-    results = collection.query(query_texts=[user_prompt], n_results=1)
-    
-    if len(results["ids"][0]) > 0:
-        best_match_meta = results["metadatas"][0][0]
-        best_match_doc = results["documents"][0][0]
-        sneaker_name = best_match_meta["name"]
-        tags = best_match_meta["tags"].split(",")
+    try:
+        # 1. Embed the user's search query
+        query_resp = client.models.embed_content(
+            model=embedding_model,
+            contents=user_prompt
+        )
+        query_emb = np.array([query_resp.embeddings[0].values], dtype=np.float32)
         
-        # Query Gemini
+        # 2. Search the FAISS Vector Database for the closest match
+        distances, indices = vector_index.search(query_emb, 1)
+        best_idx = indices[0][0]
+        best_match = metadata_store[best_idx]
+        
+        sneaker_name = best_match["name"]
+        best_match_doc = best_match["desc"]
+        tags = best_match["tags"].split(",")
+        
+        # 3. Generate the Stylist Response with Gemini 2.5 Flash
         sys_instr = "You are a high-end fashion stylist. Briefly explain why this specific sneaker matches the user's mood. Keep it under 3 sentences. Be elegant and confident."
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -125,11 +145,9 @@ def api_message():
             "text": ai_text,
             "html": card_html
         })
-    else:
-        return jsonify({
-            "text": "I couldn't find an exact match for that aesthetic in our current archives.",
-            "html": ""
-        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
