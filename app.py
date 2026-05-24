@@ -35,7 +35,7 @@ sneakers = [
 ]
 
 # 1. Embed the sneaker descriptions using Gemini
-embedding_model = 'text-embedding-004'
+embedding_model = 'text-embedding-001'
 documents = [s["desc"] for s in sneakers]
 
 print("Initializing FAISS Vector Database...")
