@@ -5,6 +5,8 @@
 |Amanpreet Singh|25346100|
 |Abubakar Mahamoud|25293400|
 
+Link to video showcase: https://youtu.be/YjwZLhN0UQw
+
 # Semantic Sneaker Sourcing Tool 👟✨
 
 An AI-driven luxury fashion curation platform that combines a production-ready **Flask** backend, a high-performance **FAISS Vector Database** for local inventory searching, and **Google Gemini 2.5 Flash** for delivering expert-level, human-like fashion styling advice.
