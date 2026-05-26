@@ -56,7 +56,7 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 
-4. Boot the Full-Stack ServerBashpython app.py
+Bash python app.py
 
 Once executed, navigate to http://127.0.0.1:5000 in your web browser to interact with the system.
 
